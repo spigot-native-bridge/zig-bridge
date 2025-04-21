@@ -1,5 +1,5 @@
-const types = @import("../../types/types.zig");
 const jni = @import("jni");
+const types = @import("root").types;
 
 const Player = types.player.Player;
 const CancelEventImpl = @import("cancel.zig").CancelEventImpl;

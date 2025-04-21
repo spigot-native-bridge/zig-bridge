@@ -1,9 +1,10 @@
 const std = @import("std");
-const state = @import("../native_plugin.zig").state;
-const types = @import("../../types/types.zig");
+const root = @import("root");
+
+const types = root.types;
+const native_plugin = root.native_plugin;
 
 const signature = types.signature;
-
 const SignaturePart = signature.SignaturePart;
 
 pub fn CancelEventImpl(comptime T: type) fn (self: *const T, cancelled: bool) void {
@@ -13,7 +14,7 @@ pub fn CancelEventImpl(comptime T: type) fn (self: *const T, cancelled: bool) vo
                 @compileError("T in CancelEventImpl must contain an `_object: jni.jobject` field.");
             }
 
-            state.env.callVoidMethod(
+            native_plugin.state.env.callVoidMethod(
                 @field(self, "_object"),
                 "setCancelled",
                 .{

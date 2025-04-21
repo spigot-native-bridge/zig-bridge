@@ -1,5 +1,7 @@
 const std = @import("std");
-const state = @import("../mappings/native_plugin.zig").state;
+const root = @import("root");
+const native_plugin = root.native_plugin;
+
 const jni = @import("jni");
 
 // we can change this some day
@@ -7,6 +9,7 @@ const Signature = [*c]const u8;
 
 pub const object = struct {
     pub fn fromJavaObject(T: type, env: *jni.cEnv, obj: jni.jobject) ?T {
+        var state = native_plugin.state;
         const info = @typeInfo(T);
 
         if (info != .@"struct") {
@@ -42,6 +45,7 @@ pub const object = struct {
 
     pub fn parseJavaField(T: type, env: *jni.cEnv, obj: jni.jobject, fieldId: jni.jfieldID) ?T {
         const info = @typeInfo(T);
+        var state = native_plugin.state;
 
         // @compileError(std.fmt.comptimePrint("Not supported currently, got type: {any}", .{info}))
         return switch (info) {

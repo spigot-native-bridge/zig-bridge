@@ -1,7 +1,9 @@
 const std = @import("std");
 const jni = @import("jni");
 const state = @import("native_plugin.zig").state;
-const sig = @import("../types/signature.zig");
+const types = @import("root").types;
+
+const sig = types.signature;
 
 pub const Env = struct {
     const Self = @This();
