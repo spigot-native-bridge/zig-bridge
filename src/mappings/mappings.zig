@@ -48,6 +48,23 @@ pub const Env = struct {
         return self.jenv.*.*.NewStringUTF.?(self.jenv, chars);
     }
 
+    pub fn newCString(self: *const Self, object: jni.jstring) [*c]const u8 {
+        return self.jenv.*.*.GetStringUTFChars.?(self.jenv, object, 0);
+    }
+
+    pub fn getClassName(self: *const Self, class: jni.jclass) ![]const u8 {
+        const getNameSignature = sig.Signature{ .bodyType = &.{}, .returnType = sig.SignaturePart.lang.String };
+        const jstr = try self.callObjectMethod(class, "getName", getNameSignature, .{});
+
+        if (jstr == null) {
+            return error.MethodNotFound;
+        }
+
+        const cstr = self.newCString(jstr);
+
+        return std.mem.span(cstr);
+    }
+
     pub fn getObjectClass(self: *const Self, object: jni.jobject) jni.jclass {
         return self.jenv.*.*.GetObjectClass.?(self.jenv, object);
     }

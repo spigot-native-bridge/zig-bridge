@@ -4,15 +4,40 @@ const types = @import("../types/types.zig");
 
 const state = @import("native_plugin.zig").state;
 
-const Player = types.player.Player;
+const signature = types.signature;
 const conversion = types.conversion;
+
+const SignaturePart = signature.SignaturePart;
+const Player = types.player.Player;
 
 pub const EventType = enum {
     BlockBreakEvent,
 };
 
+pub fn CancelEventImpl(comptime T: type) fn (self: *const T, cancelled: bool) void {
+    return struct {
+        pub fn inner(self: *const T, cancelled: bool) void {
+            if (!comptime @hasField(T, "_object")) {
+                @compileError("T in CancelEventImpl must contain an `_object` field.");
+            }
+
+            state.env.callVoidMethod(
+                @field(self, "_object"),
+                "setCancelled",
+                .{
+                    .bodyType = &.{SignaturePart.primitives.Boolean},
+                },
+                .{cancelled},
+            ) catch unreachable;
+        }
+    }.inner;
+}
+
 pub const BlockBreakEvent = struct {
     player: Player = undefined,
+    _object: jni.jobject = undefined,
+
+    pub const setCancelled = CancelEventImpl(BlockBreakEvent);
 };
 
 pub const EventRegistry = struct {

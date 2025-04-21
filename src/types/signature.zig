@@ -9,25 +9,30 @@ pub const Signature = struct {
         try buffer.append('(');
 
         for (self.bodyType, 0..) |ty, idx| {
-            try buffer.append('L');
+            if (!ty.primitive) {
+                try buffer.append('L');
+            }
+
             try buffer.appendSlice(ty.java);
 
             if (idx != self.bodyType.len - 1) {
                 try buffer.append(',');
             }
 
-            try buffer.append(';');
+            if (!ty.primitive) {
+                try buffer.append(';');
+            }
         }
 
         try buffer.append(')');
 
-        if (!std.mem.eql(u8, self.returnType.java, SignaturePart.Void.java)) {
+        if (!self.returnType.primitive) {
             try buffer.append('L');
         }
 
         try buffer.appendSlice(self.returnType.java);
 
-        if (!std.mem.eql(u8, self.returnType.java, SignaturePart.Void.java)) {
+        if (!self.returnType.primitive) {
             try buffer.appendSlice(";");
         }
 
@@ -37,6 +42,7 @@ pub const Signature = struct {
 
 pub const SignaturePart = struct {
     java: []const u8,
+    primitive: bool,
 
     pub const lang = struct {
         const PREFIX = "java/lang/";
@@ -60,9 +66,17 @@ pub const SignaturePart = struct {
         };
     };
 
-    pub const Void = SignaturePart.init("V");
+    pub const primitives = struct {
+        pub const Boolean = SignaturePart.initPrimitive("Z");
+    };
+
+    pub const Void = SignaturePart.initPrimitive("V");
 
     pub fn init(signature: []const u8) SignaturePart {
-        return .{ .java = signature };
+        return .{ .java = signature, .primitive = false };
+    }
+
+    pub fn initPrimitive(signature: []const u8) SignaturePart {
+        return .{ .java = signature, .primitive = true };
     }
 };

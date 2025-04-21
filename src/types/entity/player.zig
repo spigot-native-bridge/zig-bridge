@@ -30,6 +30,18 @@ pub const Player = struct {
         );
     }
 
+    pub fn kickPlayer(self: *const Self, message: [*c]const u8) !void {
+        try self._env.callVoidMethod(
+            self._object,
+            "kickPlayer",
+            .{
+                .bodyType = &.{SignaturePart.lang.String},
+                .returnType = SignaturePart.Void,
+            },
+            .{self._env.newString(message)},
+        );
+    }
+
     pub fn getJavaSignature() [*c]const u8 {
         return "Lorg/bukkit/entity/Player;";
     }

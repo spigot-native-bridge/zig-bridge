@@ -22,7 +22,8 @@ pub const state = struct {
 };
 
 pub fn handleBlockBreakEvent(event: *BlockBreakEvent) void {
-    event.player.sendMessage("meow. you broke a block! (from zig!)") catch unreachable;
+    event.player.sendMessage("§ameow. you broke a block! (from zig!)") catch unreachable;
+    event.setCancelled(true);
 }
 
 pub const BridgeNativePlugin = struct {
@@ -77,6 +78,7 @@ pub const BridgeNativePluginExport = extern struct {
 
     pub fn onEnable(_: *jni.cEnv, _: jni.jobject) callconv(.C) void {
         std.debug.print("meow meow meow (from zig)\n", .{});
+
         state.eventRegistry.listen(BlockBreakEvent, handleBlockBreakEvent) catch unreachable;
     }
 
