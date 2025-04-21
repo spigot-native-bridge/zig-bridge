@@ -17,8 +17,8 @@ pub const Env = struct {
     }
 
     pub fn callVoidMethod(self: *const Self, obj: jni.jobject, name: [*]const u8, signature: sig.Signature, args: anytype) !void {
-        const class = self.getObjectClass(obj) orelse unreachable;
-        const method = try self.getMethodId(class, name, signature) orelse unreachable;
+        const class = self.getObjectClass(obj) orelse return error.NoClass;
+        const method = try self.getMethodId(class, name, signature) orelse return error.NoMethod;
 
         @call(.auto, self.jenv.*.*.CallVoidMethod.?, .{ self.jenv, obj, method } ++ args);
     }
@@ -31,8 +31,8 @@ pub const Env = struct {
     }
 
     pub fn callIntMethod(self: *const Self, obj: jni.jobject, name: [*c]const u8, signature: [*c]const u8) !u32 {
-        const class = self.getObjectClass(obj);
-        const method = try self.getMethodId(class, name, signature);
+        const class = self.getObjectClass(obj) orelse return error.NoClass;
+        const method = try self.getMethodId(class, name, signature) orelse return error.NoMethod;
 
         return @intCast(self.jenv.*.*.CallIntMethod.?(self.jenv, obj, method));
     }
