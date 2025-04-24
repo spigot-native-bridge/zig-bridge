@@ -8,11 +8,8 @@ pub const Message = struct {
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator, part: MessagePart) !Message {
-        std.debug.print("init\n", .{});
         var list = std.ArrayList(MessagePart).init(allocator);
-        std.debug.print("made list\n", .{});
         try list.append(part);
-        std.debug.print("appended to list\n", .{});
 
         return .{
             .parts = list,
@@ -20,7 +17,17 @@ pub const Message = struct {
         };
     }
 
-    pub fn withPart(self: *Message, part: MessagePart) !void {
+    pub fn initSlice(allocator: std.mem.Allocator, parts: []const MessagePart) !Message {
+        var list = std.ArrayList(MessagePart).init(allocator);
+        try list.appendSlice(parts);
+
+        return .{
+            .parts = list,
+            .allocator = allocator,
+        };
+    }
+
+    pub fn appendPart(self: *Message, part: MessagePart) !void {
         try self.parts.append(part);
     }
 

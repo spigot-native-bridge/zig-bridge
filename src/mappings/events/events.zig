@@ -22,13 +22,27 @@ pub const EventType = enum {
     BlockBreakEvent,
 };
 
+pub fn unreachableErrorCallback(_: BridgeError) void {
+    unreachable;
+}
+
+pub fn debugErrorCallback(err: BridgeError) void {
+    std.debug.print("an error has occured during an event, {any}", .{err});
+}
+
 pub const EventRegistry = struct {
     listeners: std.ArrayList(EventCallback),
+    errorCallback: *const fn (err: BridgeError) void,
 
     pub fn init(allocator: std.mem.Allocator) EventRegistry {
         return .{
             .listeners = std.ArrayList(EventCallback).init(allocator),
+            .errorCallback = debugErrorCallback,
         };
+    }
+
+    pub fn setErrorCallback(self: *EventRegistry, callback: *const fn (err: BridgeError) void) void {
+        self.errorCallback = callback;
     }
 
     pub fn listenFallible(self: *EventRegistry, comptime T: type, function: *const fn (context: *T) BridgeError!void) !void {
@@ -41,7 +55,7 @@ pub const EventRegistry = struct {
 
     pub fn processEvent(self: *EventRegistry, event: NativeEvent) void {
         for (self.listeners.items) |callback| {
-            callEvent(event, callback);
+            callEvent(event, callback) catch |e| self.errorCallback(e);
         }
     }
 };
@@ -71,16 +85,16 @@ pub const EventCallback = struct {
         };
     }
 
-    pub fn call(self: EventCallback, value: *anyopaque) void {
+    pub fn call(self: EventCallback, value: *anyopaque) BridgeError!void {
         if (self.fallible) {
-            self.functionFallible(value) catch unreachable;
+            try self.functionFallible(value);
         } else {
             self.function(value);
         }
     }
 };
 
-pub fn callEvent(event: NativeEvent, callback: EventCallback) void {
+pub fn callEvent(event: NativeEvent, callback: EventCallback) BridgeError!void {
     const eventType = event.getEventType() orelse return;
     const ty = switch (eventType) {
         .BlockBreakEvent => blocks.BlockBreakEvent,
@@ -89,7 +103,7 @@ pub fn callEvent(event: NativeEvent, callback: EventCallback) void {
     const converted = conversion.object.fromJavaObject(ty, native_plugin.state.vm.env, event.event);
 
     if (converted) |ev| {
-        callback.call(@constCast(&ev));
+        try callback.call(@constCast(&ev));
     }
 }
 
