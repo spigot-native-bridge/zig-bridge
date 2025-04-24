@@ -14,7 +14,7 @@ pub fn CancelEventImpl(comptime T: type) fn (self: *const T, cancelled: bool) vo
                 @compileError("T in CancelEventImpl must contain an `_object: jni.jobject` field.");
             }
 
-            native_plugin.state.env.callVoidMethod(
+            native_plugin.state.vm.callVoidMethod(
                 @field(self, "_object"),
                 "setCancelled",
                 .{

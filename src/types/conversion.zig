@@ -8,7 +8,7 @@ const jni = @import("jni");
 const Signature = [*c]const u8;
 
 pub const object = struct {
-    pub fn fromJavaObject(T: type, env: *jni.cEnv, obj: jni.jobject) ?T {
+    pub fn fromJavaObject(T: type, env: jni.JNIEnv, obj: jni.jobject) ?T {
         var state = native_plugin.state;
         const info = @typeInfo(T);
 
@@ -19,19 +19,21 @@ pub const object = struct {
         var value = T{};
 
         const struct_ty = info.@"struct";
-        const class = env.*.*.GetObjectClass.?(env, obj) orelse unreachable;
+        const class = env.getObjectClass(obj) orelse return null;
 
         inline for (struct_ty.fields) |field| {
             // reserved names for objects this current context is aware of
             if (comptime std.mem.eql(u8, "_object", field.name)) {
                 @field(value, "_object") = obj;
             } else if (comptime std.mem.eql(u8, "_env", field.name)) {
-                @field(value, "_env") = &state.env;
+                @field(value, "_env") = state.vm.jvmEnv();
+            } else if (comptime std.mem.eql(u8, "_vm", field.name)) {
+                @field(value, "_vm") = state.vm;
             } else {
                 // in case the current field is not a reserved name, parse the field automatically.
                 const signature = types.zigTypeToSignature(field.type);
 
-                const fieldId = env.*.*.GetFieldID.?(env, class, field.name, signature);
+                const fieldId = env.getFieldID(class, field.name, signature);
                 const parsedField = parseJavaField(field.type, env, obj, fieldId);
 
                 if (parsedField) |token| {
@@ -43,9 +45,11 @@ pub const object = struct {
         return value;
     }
 
-    pub fn parseJavaField(T: type, env: *jni.cEnv, obj: jni.jobject, fieldId: jni.jfieldID) ?T {
+    pub fn parseJavaField(T: type, zig_env: jni.JNIEnv, obj: jni.jobject, fieldId: jni.jfieldID) ?T {
         const info = @typeInfo(T);
         var state = native_plugin.state;
+
+        const env = zig_env._cJNIEnv;
 
         // @compileError(std.fmt.comptimePrint("Not supported currently, got type: {any}", .{info}))
         return switch (info) {
@@ -90,7 +94,7 @@ pub const object = struct {
             },
             else => switch (T) {
                 jni.jobject => env.*.*.GetObjectField.?(env, obj, fieldId),
-                else => fromJavaObject(T, env, env.*.*.GetObjectField.?(env, obj, fieldId) orelse unreachable),
+                else => fromJavaObject(T, zig_env, env.*.*.GetObjectField.?(env, obj, fieldId) orelse unreachable),
             },
         };
     }

@@ -21,17 +21,20 @@ const SignaturePart = types.signature.SignaturePart;
 const Player = types.player.Player;
 const conversion = types.conversion;
 
+pub const BridgeError = error{} || mappings.VMError;
+
+pub const VMState = mappings.VMState;
 pub const PluginState = struct {
     eventRegistry: EventRegistry,
     allocator: std.mem.Allocator,
-    env: mappings.Env,
+    vm: VMState,
 
-    pub fn init(env: *jni.cEnv) PluginState {
-        const allocator = std.heap.page_allocator;
+    pub fn init(env: *jni.cEnv) !PluginState {
+        const allocator = std.heap.c_allocator;
         return .{
             .allocator = allocator,
             .eventRegistry = EventRegistry.init(allocator),
-            .env = mappings.Env.init(env, allocator),
+            .vm = try mappings.VMState.init(env, allocator),
         };
     }
 };
@@ -64,29 +67,33 @@ pub const BridgeNativePluginExport = extern struct {
     pub fn tick(_: *jni.cEnv, _: jni.jobject) callconv(.C) void {}
 
     pub fn onLoad(env: *jni.cEnv, _: jni.jobject) callconv(.C) void {
-        state = PluginState.init(env);
+        state = PluginState.init(env) catch unreachable;
         load(&state);
     }
 
     pub fn onEnable(_: *jni.cEnv, _: jni.jobject) callconv(.C) void {
         enable(&state);
+        state.vm.attachToVM() catch unreachable;
     }
 
     pub fn processEvent(_: *jni.cEnv, _: jni.jobject, jevent: jni.jobject) callconv(.C) void {
+        state.vm.attachToVM() catch unreachable;
+
         if (NativeEvent.init(jevent)) |event| {
             state.eventRegistry.processEvent(event);
         }
     }
 
     pub fn onDisable(_: *jni.cEnv, _: jni.jobject) callconv(.C) void {
+        state.vm.attachToVM() catch unreachable;
         disable(&state);
     }
 
     pub fn getName(_: *jni.cEnv, _: jni.jobject) callconv(.C) jni.jstring {
-        return state.env.newString("bridge-zig");
+        return state.vm.newUnicodeStringUtf8("bridge-zig") catch unreachable;
     }
 
     pub fn getLanguage(_: *jni.cEnv, _: jni.jobject) callconv(.C) jni.jstring {
-        return state.env.newString("zig");
+        return state.vm.newUnicodeStringUtf8("zig") catch unreachable;
     }
 };

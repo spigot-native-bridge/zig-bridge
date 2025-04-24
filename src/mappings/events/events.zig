@@ -13,6 +13,8 @@ const conversion = types.conversion;
 const SignaturePart = signature.SignaturePart;
 const Player = types.player.Player;
 
+const BridgeError = native_plugin.BridgeError;
+
 // public exports
 pub const blocks = @import("blocks.zig");
 
@@ -29,6 +31,10 @@ pub const EventRegistry = struct {
         };
     }
 
+    pub fn listenFallible(self: *EventRegistry, comptime T: type, function: *const fn (context: *T) BridgeError!void) !void {
+        try self.listeners.append(EventCallback.initFallible(T, function));
+    }
+
     pub fn listen(self: *EventRegistry, comptime T: type, function: *const fn (context: *T) void) !void {
         try self.listeners.append(EventCallback.init(T, function));
     }
@@ -40,17 +46,37 @@ pub const EventRegistry = struct {
     }
 };
 
+fn eventNoOpFallible(_: *anyopaque) BridgeError!void {}
+fn eventNoOp(_: *anyopaque) void {}
+
 pub const EventCallback = struct {
+    functionFallible: *const fn (context: *anyopaque) BridgeError!void,
     function: *const fn (context: *anyopaque) void,
+
+    fallible: bool,
+
+    pub fn initFallible(comptime T: type, function: *const fn (context: *T) BridgeError!void) EventCallback {
+        return .{
+            .functionFallible = @ptrCast(function),
+            .function = eventNoOp,
+            .fallible = true,
+        };
+    }
 
     pub fn init(comptime T: type, function: *const fn (context: *T) void) EventCallback {
         return .{
+            .functionFallible = eventNoOpFallible,
             .function = @ptrCast(function),
+            .fallible = false,
         };
     }
 
     pub fn call(self: EventCallback, value: *anyopaque) void {
-        self.function(value);
+        if (self.fallible) {
+            self.functionFallible(value) catch unreachable;
+        } else {
+            self.function(value);
+        }
     }
 };
 
@@ -60,7 +86,7 @@ pub fn callEvent(event: NativeEvent, callback: EventCallback) void {
         .BlockBreakEvent => blocks.BlockBreakEvent,
     };
 
-    const converted = conversion.object.fromJavaObject(ty, native_plugin.state.env.jenv, event.event);
+    const converted = conversion.object.fromJavaObject(ty, native_plugin.state.vm.env, event.event);
 
     if (converted) |ev| {
         callback.call(@constCast(&ev));
@@ -72,7 +98,7 @@ pub const NativeEvent = struct {
     event: jni.jobject = undefined,
 
     pub fn init(object: jni.jobject) ?NativeEvent {
-        return conversion.object.fromJavaObject(NativeEvent, native_plugin.state.env.jenv, object);
+        return conversion.object.fromJavaObject(NativeEvent, native_plugin.state.vm.env, object);
     }
 
     pub fn getEventType(self: *const NativeEvent) ?EventType {
