@@ -1,9 +1,9 @@
 const jni = @import("jni");
 const std = @import("std");
-const mappings = @import("mappings.zig");
-const events = @import("events/events.zig");
 const root = @import("root");
 
+const mappings = root.mappings;
+const events = root.events;
 const types = root.types;
 
 const load = root.load;
@@ -11,7 +11,6 @@ const enable = root.enable;
 const disable = root.disable;
 
 const NativeEvent = events.NativeEvent;
-const BlockBreakEvent = events.blocks.BlockBreakEvent;
 const EventCallback = events.EventCallback;
 const EventRegistry = events.EventRegistry;
 
@@ -68,12 +67,12 @@ pub const BridgeNativePluginExport = extern struct {
 
     pub fn onLoad(env: *jni.cEnv, _: jni.jobject) callconv(.C) void {
         state = PluginState.init(env) catch unreachable;
-        load(&state);
+        load(&state) catch unreachable;
     }
 
     pub fn onEnable(_: *jni.cEnv, _: jni.jobject) callconv(.C) void {
-        enable(&state);
         state.vm.attachToVM() catch unreachable;
+        enable(&state) catch unreachable;
     }
 
     pub fn processEvent(_: *jni.cEnv, _: jni.jobject, jevent: jni.jobject) callconv(.C) void {
@@ -86,7 +85,7 @@ pub const BridgeNativePluginExport = extern struct {
 
     pub fn onDisable(_: *jni.cEnv, _: jni.jobject) callconv(.C) void {
         state.vm.attachToVM() catch unreachable;
-        disable(&state);
+        disable(&state) catch unreachable;
     }
 
     pub fn getName(_: *jni.cEnv, _: jni.jobject) callconv(.C) jni.jstring {

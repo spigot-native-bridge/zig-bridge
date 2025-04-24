@@ -4,8 +4,8 @@ const jni = @import("jni");
 
 // public exports, import using @import("root").<x>
 pub const types = @import("types/types.zig");
-pub const events = @import("mappings/events/events.zig");
-pub const native_plugin = @import("mappings/native_plugin.zig");
+pub const events = @import("events/events.zig");
+pub const native_plugin = @import("plugin/native_plugin.zig");
 pub const mappings = @import("mappings/mappings.zig");
 pub const chat = @import("chat.zig");
 

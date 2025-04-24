@@ -1,8 +1,9 @@
 const std = @import("std");
 const jni = @import("jni");
-const state = @import("native_plugin.zig").state;
+const root = @import("root");
 const types = @import("root").types;
 
+const state = root.native_plugin.state;
 const sig = types.signature;
 const MAX_STRINGS = 4;
 

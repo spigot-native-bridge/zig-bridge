@@ -17,9 +17,11 @@ const BridgeError = native_plugin.BridgeError;
 
 // public exports
 pub const blocks = @import("blocks.zig");
+pub const player = @import("player.zig");
 
 pub const EventType = enum {
     BlockBreakEvent,
+    PlayerJoinEvent,
 };
 
 pub fn unreachableErrorCallback(_: BridgeError) void {
@@ -55,6 +57,12 @@ pub const EventRegistry = struct {
 
     pub fn processEvent(self: *EventRegistry, event: NativeEvent) void {
         for (self.listeners.items) |callback| {
+
+            // nothing to do, this is not the same event.
+            if (callback.eventType != event.getEventType()) {
+                continue;
+            }
+
             callEvent(event, callback) catch |e| self.errorCallback(e);
         }
     }
@@ -68,20 +76,31 @@ pub const EventCallback = struct {
     function: *const fn (context: *anyopaque) void,
 
     fallible: bool,
+    eventType: EventType,
 
     pub fn initFallible(comptime T: type, function: *const fn (context: *T) BridgeError!void) EventCallback {
+        if (!std.meta.hasFn(T, "getEventType")) {
+            @compileError("Passed an event type to .init() or .initFallible() without a getEventType() function");
+        }
+
         return .{
             .functionFallible = @ptrCast(function),
             .function = eventNoOp,
             .fallible = true,
+            .eventType = T.getEventType(),
         };
     }
 
     pub fn init(comptime T: type, function: *const fn (context: *T) void) EventCallback {
+        if (!std.meta.hasFn(T, "getEventType")) {
+            @compileError("Passed an event type to .init() or .initFallible() without a getEventType() function");
+        }
+
         return .{
             .functionFallible = eventNoOpFallible,
             .function = @ptrCast(function),
             .fallible = false,
+            .eventType = T.getEventType(),
         };
     }
 
@@ -96,14 +115,34 @@ pub const EventCallback = struct {
 
 pub fn callEvent(event: NativeEvent, callback: EventCallback) BridgeError!void {
     const eventType = event.getEventType() orelse return;
-    const ty = switch (eventType) {
-        .BlockBreakEvent => blocks.BlockBreakEvent,
-    };
+    //const ty = switch (eventType) {
+    //    .BlockBreakEvent => blocks.BlockBreakEvent,
+    //    .PlayerJoinEvent => player.PlayerJoinEvent,
+    //};
 
-    const converted = conversion.object.fromJavaObject(ty, native_plugin.state.vm.env, event.event);
+    switch (eventType) {
+        .BlockBreakEvent => {
+            const converted = conversion.object.fromJavaObject(
+                blocks.BlockBreakEvent,
+                native_plugin.state.vm.env,
+                event.event,
+            );
 
-    if (converted) |ev| {
-        try callback.call(@constCast(&ev));
+            if (converted) |ev| {
+                try callback.call(@constCast(&ev));
+            }
+        },
+        .PlayerJoinEvent => {
+            const converted = conversion.object.fromJavaObject(
+                player.PlayerJoinEvent,
+                native_plugin.state.vm.env,
+                event.event,
+            );
+
+            if (converted) |ev| {
+                try callback.call(@constCast(&ev));
+            }
+        },
     }
 }
 

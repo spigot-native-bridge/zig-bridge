@@ -10,22 +10,24 @@ const BridgeError = root.BridgeError;
 const Message = chat.Message;
 
 // functions called by mappings/native_plugin.BridgeNativePluginExport
-pub fn load(state: *plugin.PluginState) void {
+pub fn load(state: *plugin.PluginState) !void {
     // 'listenFallible' for an event listener that can return an error (specifically, BridgeError, meaning, BridgeError!void)
     // 'listen' for an event listener that simply returns 'void'
-    state.eventRegistry.listenFallible(events.blocks.BlockBreakEvent, handleBlockBreakEvent) catch unreachable;
+    try state.eventRegistry.listenFallible(events.blocks.BlockBreakEvent, handleBlockBreakEvent);
+    try state.eventRegistry.listenFallible(events.player.PlayerJoinEvent, onPlayerJoin);
 
     // default is events.debugErrorCallback
     state.eventRegistry.setErrorCallback(events.unreachableErrorCallback);
 }
 
-pub fn enable(_: *plugin.PluginState) void {}
+pub fn enable(_: *plugin.PluginState) !void {}
 
-pub fn disable(_: *plugin.PluginState) void {
+pub fn disable(_: *plugin.PluginState) !void {
     std.debug.print("plugin has disabled... - zig", .{});
 }
 
-pub fn handleBlockBreakEvent(event: *events.blocks.BlockBreakEvent) BridgeError!void {
+pub fn onPlayerJoin(event: *events.player.PlayerJoinEvent) BridgeError!void {
+    std.debug.print("player join event", .{});
     const message = try Message.initSlice(
         plugin.state.allocator,
         &.{
@@ -35,6 +37,8 @@ pub fn handleBlockBreakEvent(event: *events.blocks.BlockBreakEvent) BridgeError!
     );
 
     try event.player.sendChatMessage(message);
+}
 
+pub fn handleBlockBreakEvent(event: *events.blocks.BlockBreakEvent) BridgeError!void {
     event.setCancelled(true);
 }
