@@ -28,19 +28,30 @@ pub const BridgeError = error{} || mappings.VMError;
 
 pub const VMState = mappings.VMState;
 pub const PluginState = struct {
-    commandRegistry: CommandRegistry,
+    const Self = @This();
+    const InitFunction = *const fn (state: *Self) BridgeError!void;
+
+    commandRegistry: CommandRegistry = undefined,
     eventRegistry: EventRegistry,
     allocator: std.mem.Allocator,
     vm: VMState,
 
-    pub fn init(env: *jni.cEnv) !PluginState {
+    // functions
+    enable: InitFunction = undefined,
+    disable: InitFunction = undefined,
+
+    pub fn init(env: *jni.cEnv) !Self {
         const allocator = std.heap.c_allocator;
         return .{
             .allocator = allocator,
             .eventRegistry = EventRegistry.init(allocator),
             .vm = try mappings.VMState.init(env, allocator),
-            .commandRegistry = undefined,
         };
+    }
+
+    pub fn markPlugin(self: *Self, enableFunction: InitFunction, disableFunction: InitFunction) void {
+        self.enable = enableFunction;
+        self.disable = disableFunction;
     }
 };
 
@@ -79,8 +90,8 @@ pub const BridgeNativePluginExport = extern struct {
 
     pub fn onEnable(_: *jni.cEnv, _: jni.jobject) callconv(.C) void {
         state.vm.attachToVM() catch unreachable;
-        //enable(&state) catch unreachable;
-        enable(&state);
+        state.enable(&state) catch unreachable;
+        //enable(&state);
     }
 
     pub fn processEvent(_: *jni.cEnv, _: jni.jobject, jevent: jni.jobject) callconv(.C) void {
@@ -93,8 +104,8 @@ pub const BridgeNativePluginExport = extern struct {
 
     pub fn onDisable(_: *jni.cEnv, _: jni.jobject) callconv(.C) void {
         state.vm.attachToVM() catch unreachable;
-        //disable(&state) catch unreachable;
-        disable(&state);
+        state.disable(&state) catch unreachable;
+        //disable(&state);
     }
 
     pub fn getName(_: *jni.cEnv, _: jni.jobject) callconv(.C) jni.jstring {

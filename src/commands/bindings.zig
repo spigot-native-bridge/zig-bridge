@@ -117,7 +117,8 @@ pub fn zigBridgeCommand(player: Player, _: []const u8, _: []const u8) !void {
         plugin.state.allocator,
         &.{
             .{ .text = "This server is running ", .color = .yellow },
-            .{ .text = "Zig Bridge\n", .color = .aqua },
+            .{ .text = "Zig Bridge ", .color = .aqua },
+            .{ .text = "v" ++ bridge.Version ++ "\n", .color = .aqua },
             .{ .text = "https://github.com/therealnv6/zig-mappings", .color = .gray, .modifiers = &.{ .italic, .underline } },
         },
     );

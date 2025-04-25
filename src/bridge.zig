@@ -10,16 +10,13 @@ pub const mappings = @import("mappings/mappings.zig");
 pub const chat = @import("chat.zig");
 pub const commands = @import("commands/bindings.zig");
 
-// functions that get called by java code
-//pub const load = plugin.load;
-//pub const enable = plugin.enable;
-//pub const disable = plugin.disable;
+const root = @import("root");
 
 pub const BridgeError = native_plugin.BridgeError;
+pub const Version = "0.0.2";
 
+// this is expected to be in your plugin!
 pub extern fn load(state: *native_plugin.PluginState) void;
-pub extern fn enable(state: *native_plugin.PluginState) void;
-pub extern fn disable(state: *native_plugin.PluginState) void;
 
 comptime {
     jni.exportJNI("io.github.therealnv6.BridgeNativePlugin", native_plugin.BridgeNativePluginExport);
