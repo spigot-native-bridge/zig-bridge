@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const COLOR_CHAR = "§";
+pub const COLOR_CHAR = "§";
 const ALPHABET = "0123456789abcdefklmnor";
 
 pub const Message = struct {

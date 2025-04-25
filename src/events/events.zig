@@ -22,6 +22,7 @@ pub const player = @import("player.zig");
 pub const EventType = enum {
     BlockBreakEvent,
     PlayerJoinEvent,
+    PlayerChatEvent,
 };
 
 pub fn unreachableErrorCallback(_: BridgeError, _: NativeEvent) void {
@@ -29,9 +30,10 @@ pub fn unreachableErrorCallback(_: BridgeError, _: NativeEvent) void {
 }
 
 pub fn debugErrorCallback(err: BridgeError, event: NativeEvent) void {
-    std.debug.print("an {any} error has occured during an event, {any}\n", .{ err, event });
-    std.debug.print("this would have been a runtime crash in unreachableErrorCallback()", .{});
-    std.debug.print("you should (most likely, unless impossible) fix this.", .{});
+    std.debug.print("\n[ee] [BRIDGE-ZIG EVENT ERROR]\n", .{});
+    std.debug.print("[ee] an {any} error has occured during a {s} event!\n", .{ err, event.eventId });
+    std.debug.print("[ee] this would have been a runtime crash in unreachableErrorCallback()\n", .{});
+    std.debug.print("[ee] this is an error within one of your plugins, *not* with bridge-zig.\n\n", .{});
 }
 
 pub const EventRegistry = struct {
@@ -115,6 +117,18 @@ pub const EventCallback = struct {
     }
 };
 
+fn callEventTyped(event: NativeEvent, callback: EventCallback, comptime T: type) BridgeError!void {
+    const converted = conversion.object.fromJavaObject(
+        T,
+        native_plugin.state.vm.env,
+        event.event,
+    );
+
+    if (converted) |ev| {
+        try callback.call(@constCast(&ev));
+    }
+}
+
 pub fn callEvent(event: NativeEvent, callback: EventCallback) BridgeError!void {
     const eventType = event.getEventType() orelse return;
     //const ty = switch (eventType) {
@@ -123,29 +137,34 @@ pub fn callEvent(event: NativeEvent, callback: EventCallback) BridgeError!void {
     //};
 
     switch (eventType) {
-        .BlockBreakEvent => {
-            const converted = conversion.object.fromJavaObject(
-                blocks.BlockBreakEvent,
-                native_plugin.state.vm.env,
-                event.event,
-            );
-
-            if (converted) |ev| {
-                try callback.call(@constCast(&ev));
-            }
-        },
-        .PlayerJoinEvent => {
-            const converted = conversion.object.fromJavaObject(
-                player.PlayerJoinEvent,
-                native_plugin.state.vm.env,
-                event.event,
-            );
-
-            if (converted) |ev| {
-                try callback.call(@constCast(&ev));
-            }
-        },
+        .BlockBreakEvent => try callEventTyped(event, callback, blocks.BlockBreakEvent),
+        .PlayerJoinEvent => try callEventTyped(event, callback, player.PlayerJoinEvent),
+        .PlayerChatEvent => try callEventTyped(event, callback, player.PlayerChatEvent),
     }
+    //switch (eventType) {
+    //    .BlockBreakEvent => {
+    //        const converted = conversion.object.fromJavaObject(
+    //            blocks.BlockBreakEvent,
+    //            native_plugin.state.vm.env,
+    //            event.event,
+    //        );
+
+    //        if (converted) |ev| {
+    //            try callback.call(@constCast(&ev));
+    //        }
+    //    },
+    //    .PlayerJoinEvent => {
+    //        const converted = conversion.object.fromJavaObject(
+    //            player.PlayerJoinEvent,
+    //            native_plugin.state.vm.env,
+    //            event.event,
+    //        );
+
+    //        if (converted) |ev| {
+    //            try callback.call(@constCast(&ev));
+    //        }
+    //    },
+    //}
 }
 
 pub const NativeEvent = struct {

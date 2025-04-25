@@ -24,7 +24,7 @@ const SignaturePart = types.signature.SignaturePart;
 const Player = types.player.Player;
 const conversion = types.conversion;
 
-pub const BridgeError = error{} || mappings.VMError;
+pub const BridgeError = error{NotFound} || mappings.VMError;
 
 pub const VMState = mappings.VMState;
 pub const PluginState = struct {

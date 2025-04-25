@@ -51,6 +51,7 @@ pub const SignaturePart = struct {
 
         pub const Collection = SignaturePart.init(PREFIX ++ "Collection");
         pub const List = SignaturePart.init(PREFIX ++ "List");
+        pub const UUID = SignaturePart.init(PREFIX ++ "UUID");
     };
 
     pub const bukkit = struct {

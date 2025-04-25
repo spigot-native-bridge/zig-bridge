@@ -59,6 +59,25 @@ pub const Player = struct {
         );
     }
 
+    pub fn getUniqueId(self: *const Self) !types.UniqueId {
+        const obj = try self._vm.callObjectMethod(
+            self._object,
+            "getUniqueId",
+            .{
+                .returnType = SignaturePart.util.UUID,
+            },
+            .{},
+        );
+
+        const id = types.conversion.object.fromJavaObject(types.UniqueId, self._vm.jvmEnv().*, obj);
+
+        if (id == null) {
+            return bridge.BridgeError.OutOfMemory;
+        }
+
+        return id.?;
+    }
+
     pub fn getJavaSignature() [*c]const u8 {
         return "Lorg/bukkit/entity/Player;";
     }
