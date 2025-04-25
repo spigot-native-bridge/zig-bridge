@@ -131,40 +131,12 @@ fn callEventTyped(event: NativeEvent, callback: EventCallback, comptime T: type)
 
 pub fn callEvent(event: NativeEvent, callback: EventCallback) BridgeError!void {
     const eventType = event.getEventType() orelse return;
-    //const ty = switch (eventType) {
-    //    .BlockBreakEvent => blocks.BlockBreakEvent,
-    //    .PlayerJoinEvent => player.PlayerJoinEvent,
-    //};
 
     switch (eventType) {
         .BlockBreakEvent => try callEventTyped(event, callback, blocks.BlockBreakEvent),
         .PlayerJoinEvent => try callEventTyped(event, callback, player.PlayerJoinEvent),
         .PlayerChatEvent => try callEventTyped(event, callback, player.PlayerChatEvent),
     }
-    //switch (eventType) {
-    //    .BlockBreakEvent => {
-    //        const converted = conversion.object.fromJavaObject(
-    //            blocks.BlockBreakEvent,
-    //            native_plugin.state.vm.env,
-    //            event.event,
-    //        );
-
-    //        if (converted) |ev| {
-    //            try callback.call(@constCast(&ev));
-    //        }
-    //    },
-    //    .PlayerJoinEvent => {
-    //        const converted = conversion.object.fromJavaObject(
-    //            player.PlayerJoinEvent,
-    //            native_plugin.state.vm.env,
-    //            event.event,
-    //        );
-
-    //        if (converted) |ev| {
-    //            try callback.call(@constCast(&ev));
-    //        }
-    //    },
-    //}
 }
 
 pub const NativeEvent = struct {
