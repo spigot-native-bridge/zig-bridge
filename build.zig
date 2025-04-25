@@ -9,11 +9,12 @@ pub fn build(b: *std.Build) void {
     // means any target is allowed, and the default is native. Other options
     // for restricting supported target set are available.
     const target = b.standardTargetOptions(.{});
+    const optimize = b.standardOptimizeOption(.{});
 
     // Standard optimization options allow the person running `zig build` to select
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall. Here we do not
     // set a preferred release mode, allowing the user to decide how to optimize.
-    const optimize = b.standardOptimizeOption(.{});
+    //const optimize = b.standardOptimizeOption(.{});
 
     // This creates a "module", which represents a collection of source files alongside
     // some compilation options, such as optimization mode and linked system libraries.
@@ -23,7 +24,7 @@ pub fn build(b: *std.Build) void {
         // only contains e.g. external object files, you can make this `null`.
         // In this case the main source file is merely a path, however, in more
         // complicated build scripts, this could be a generated file.
-        .root_source_file = b.path("src/root.zig"),
+        .root_source_file = b.path("src/bridge.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -33,14 +34,21 @@ pub fn build(b: *std.Build) void {
     // for actually invoking the compiler.
     const lib = b.addLibrary(.{
         .linkage = .dynamic,
-        .name = "zig_mappings",
+        .name = "zig-bridge",
         .root_module = lib_mod,
     });
 
-    lib.addIncludePath(b.path("include/"));
-
     const dep_JNI = b.dependency("jni", .{}).module("JNI");
     lib.root_module.addImport("jni", dep_JNI);
+
+    const module = b.addModule("zig-bridge", .{
+        .root_source_file = b.path("src/bridge.zig"),
+    });
+
+    module.addImport("jni", dep_JNI);
+    module.addIncludePath(dep_JNI.root_source_file orelse unreachable);
+
+    lib.addIncludePath(b.path("include/"));
 
     // This declares intent for the library to be installed into the standard
     // location when the user invokes the "install" step (the default step when

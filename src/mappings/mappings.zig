@@ -1,9 +1,9 @@
 const std = @import("std");
 const jni = @import("jni");
-const root = @import("root");
-const types = @import("root").types;
+const bridge = @import("../bridge.zig");
+const types = bridge.types;
 
-const state = root.native_plugin.state;
+const state = bridge.native_plugin.state;
 const sig = types.signature;
 const MAX_STRINGS = 4;
 
@@ -70,8 +70,8 @@ pub const VMState = struct {
         self.env.releaseStringChars(jstr, str.ptr);
     }
 
-    pub fn newCString(self: *const Self, object: jni.jstring) [*c]const u8 {
-        return self.env.getStringUTFChars.?(self.jenv, object, 0);
+    pub fn newCString(self: *const Self, object: jni.jstring, copy: bool) [*c]const u8 {
+        return self.env.getStringUTFChars(object, @constCast(&copy));
     }
 
     pub fn callVoidMethod(self: *const Self, obj: jni.jobject, name: []const u8, signature: sig.Signature, args: anytype) VMError!void {
@@ -79,11 +79,11 @@ pub const VMState = struct {
     }
 
     pub fn callIntegerMethod(self: *const Self, obj: jni.jobject, name: []const u8, signature: sig.Signature, args: anytype) VMError!u32 {
-        return self.callMethodTemplate(self.env._cJNIEnv.*.*.CallIntMethod.?, void, obj, name, signature, args);
+        return self.callMethodTemplate(self.env._cJNIEnv.*.*.CallIntMethod.?, u32, obj, name, signature, args);
     }
 
-    pub fn callObjectMethod(self: *const Self, obj: jni.jobject, name: []const u8, signature: sig.Signature, args: anytype) VMError!u32 {
-        return self.callMethodTemplate(self.env._cJNIEnv.*.*.CallObjectMethod.?, void, obj, name, signature, args);
+    pub fn callObjectMethod(self: *const Self, obj: jni.jobject, name: []const u8, signature: sig.Signature, args: anytype) VMError!jni.jobject {
+        return self.callMethodTemplate(self.env._cJNIEnv.*.*.CallObjectMethod.?, jni.jobject, obj, name, signature, args);
     }
 
     pub fn newObject(self: *const Self, className: [*]const u8, signature: [*c]const u8, args: anytype) VMError!jni.jobject {
@@ -91,7 +91,8 @@ pub const VMState = struct {
     }
 
     pub fn callMethodTemplate(self: *const Self, function: anytype, comptime ReturnType: type, obj: jni.jobject, name: []const u8, signature: sig.Signature, args: anytype) VMError!ReturnType {
-        const class = self.env.getObjectClass(obj) orelse return error.NoClassFound;
+        const class = self.env.getObjectClass(obj) orelse return VMError.NoClassFound;
+
         const method = self.env._cJNIEnv.*.*.GetMethodID.?(
             self.env._cJNIEnv,
             class,
@@ -102,12 +103,16 @@ pub const VMState = struct {
         return @call(.auto, function, .{ self.env._cJNIEnv, obj, method } ++ args);
     }
 
-    pub fn getClassName(self: *const Self, class: jni.jclass) ![]const u8 {
-        const getNameSignature = sig.Signature{ .bodyType = &.{}, .returnType = sig.SignaturePart.lang.String };
+    pub fn getClassName(self: *const Self, class: jni.jclass) VMError![]const u8 {
+        const getNameSignature = sig.Signature{
+            .bodyType = &.{},
+            .returnType = sig.SignaturePart.lang.String,
+        };
+
         const jstr = try self.callObjectMethod(class, "getName", getNameSignature, .{});
 
         if (jstr == null) {
-            return error.MethodNotFound;
+            return VMError.NoMethodFound;
         }
 
         return std.mem.span(self.newCString(jstr));

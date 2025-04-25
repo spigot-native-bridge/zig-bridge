@@ -1,8 +1,8 @@
 const std = @import("std");
-const root = @import("root");
+const bridge = @import("../bridge.zig");
 
-const types = root.types;
-const native_plugin = root.native_plugin;
+const types = bridge.types;
+const native_plugin = bridge.native_plugin;
 
 const signature = types.signature;
 const SignaturePart = signature.SignaturePart;

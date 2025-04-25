@@ -8,16 +8,12 @@ pub const Signature = struct {
         var buffer = std.ArrayList(u8).init(allocator);
         try buffer.append('(');
 
-        for (self.bodyType, 0..) |ty, idx| {
+        for (self.bodyType) |ty| {
             if (!ty.primitive) {
                 try buffer.append('L');
             }
 
             try buffer.appendSlice(ty.java);
-
-            if (idx != self.bodyType.len - 1) {
-                try buffer.append(',');
-            }
 
             if (!ty.primitive) {
                 try buffer.append(';');

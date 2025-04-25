@@ -1,18 +1,22 @@
 const jni = @import("jni");
 const std = @import("std");
-const root = @import("root");
+const bridge = @import("../bridge.zig");
 
-const mappings = root.mappings;
-const events = root.events;
-const types = root.types;
+const commands = bridge.commands;
 
-const load = root.load;
-const enable = root.enable;
-const disable = root.disable;
+const mappings = bridge.mappings;
+const events = bridge.events;
+const types = bridge.types;
+
+const load = bridge.load;
+const enable = bridge.enable;
+const disable = bridge.disable;
 
 const NativeEvent = events.NativeEvent;
 const EventCallback = events.EventCallback;
 const EventRegistry = events.EventRegistry;
+
+const CommandRegistry = commands.BridgeCommandRegistry;
 
 const java = types.list.java;
 
@@ -24,6 +28,7 @@ pub const BridgeError = error{} || mappings.VMError;
 
 pub const VMState = mappings.VMState;
 pub const PluginState = struct {
+    commandRegistry: CommandRegistry,
     eventRegistry: EventRegistry,
     allocator: std.mem.Allocator,
     vm: VMState,
@@ -34,6 +39,7 @@ pub const PluginState = struct {
             .allocator = allocator,
             .eventRegistry = EventRegistry.init(allocator),
             .vm = try mappings.VMState.init(env, allocator),
+            .commandRegistry = undefined,
         };
     }
 };
@@ -67,12 +73,14 @@ pub const BridgeNativePluginExport = extern struct {
 
     pub fn onLoad(env: *jni.cEnv, _: jni.jobject) callconv(.C) void {
         state = PluginState.init(env) catch unreachable;
-        load(&state) catch unreachable;
+        //load(&state) catch unreachable;
+        load(&state);
     }
 
     pub fn onEnable(_: *jni.cEnv, _: jni.jobject) callconv(.C) void {
         state.vm.attachToVM() catch unreachable;
-        enable(&state) catch unreachable;
+        //enable(&state) catch unreachable;
+        enable(&state);
     }
 
     pub fn processEvent(_: *jni.cEnv, _: jni.jobject, jevent: jni.jobject) callconv(.C) void {
@@ -85,7 +93,8 @@ pub const BridgeNativePluginExport = extern struct {
 
     pub fn onDisable(_: *jni.cEnv, _: jni.jobject) callconv(.C) void {
         state.vm.attachToVM() catch unreachable;
-        disable(&state) catch unreachable;
+        //disable(&state) catch unreachable;
+        disable(&state);
     }
 
     pub fn getName(_: *jni.cEnv, _: jni.jobject) callconv(.C) jni.jstring {

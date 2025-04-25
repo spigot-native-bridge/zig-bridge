@@ -1,8 +1,8 @@
 const std = @import("std");
-const root = @import("root");
-const native_plugin = root.native_plugin;
-
 const jni = @import("jni");
+const bridge = @import("../bridge.zig");
+
+const native_plugin = bridge.native_plugin;
 
 // we can change this some day
 const Signature = [*c]const u8;

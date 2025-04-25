@@ -1,11 +1,11 @@
 const std = @import("std");
 const jni = @import("jni");
 
-const root = @import("root");
+const bridge = @import("../bridge.zig");
 
-const native_plugin = root.native_plugin;
+const native_plugin = bridge.native_plugin;
 
-const types = root.types;
+const types = bridge.types;
 
 const signature = types.signature;
 const conversion = types.conversion;
@@ -24,17 +24,19 @@ pub const EventType = enum {
     PlayerJoinEvent,
 };
 
-pub fn unreachableErrorCallback(_: BridgeError) void {
+pub fn unreachableErrorCallback(_: BridgeError, _: NativeEvent) void {
     unreachable;
 }
 
-pub fn debugErrorCallback(err: BridgeError) void {
-    std.debug.print("an error has occured during an event, {any}", .{err});
+pub fn debugErrorCallback(err: BridgeError, event: NativeEvent) void {
+    std.debug.print("an {any} error has occured during an event, {any}\n", .{ err, event });
+    std.debug.print("this would have been a runtime crash in unreachableErrorCallback()", .{});
+    std.debug.print("you should (most likely, unless impossible) fix this.", .{});
 }
 
 pub const EventRegistry = struct {
     listeners: std.ArrayList(EventCallback),
-    errorCallback: *const fn (err: BridgeError) void,
+    errorCallback: *const fn (err: BridgeError, event: NativeEvent) void,
 
     pub fn init(allocator: std.mem.Allocator) EventRegistry {
         return .{
@@ -43,7 +45,7 @@ pub const EventRegistry = struct {
         };
     }
 
-    pub fn setErrorCallback(self: *EventRegistry, callback: *const fn (err: BridgeError) void) void {
+    pub fn setErrorCallback(self: *EventRegistry, callback: *const fn (err: BridgeError, event: NativeEvent) void) void {
         self.errorCallback = callback;
     }
 
@@ -63,7 +65,7 @@ pub const EventRegistry = struct {
                 continue;
             }
 
-            callEvent(event, callback) catch |e| self.errorCallback(e);
+            callEvent(event, callback) catch |e| self.errorCallback(e, event);
         }
     }
 };

@@ -1,10 +1,12 @@
 const jni = @import("jni");
 const events = @import("events.zig");
-const types = @import("root").types;
+const bridge = @import("../bridge.zig");
+
+const types = bridge.types;
 
 const EventType = events.EventType;
-
 const Player = types.player.Player;
+
 const CancelEventImpl = @import("cancel.zig").CancelEventImpl;
 
 pub const BlockBreakEvent = struct {
