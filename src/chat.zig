@@ -1,7 +1,12 @@
 const std = @import("std");
+const bridge = @import("bridge.zig");
 
 pub const COLOR_CHAR = "§";
 const ALPHABET = "0123456789abcdefklmnor";
+
+pub fn translateColor(char: []const u8, message: []const u8) ![]const u8 {
+    return std.mem.replaceOwned(u8, bridge.native_plugin.state.allocator, message, char, COLOR_CHAR);
+}
 
 pub const Message = struct {
     parts: std.ArrayList(MessagePart),

@@ -9,23 +9,46 @@ const plugin = bridge.native_plugin;
 const conversion = types.conversion;
 const signature = types.signature;
 
-const Player = types.player.Player;
 const SignaturePart = signature.SignaturePart;
 const Message = bridge.chat.Message;
 
+pub const CommandSender = @import("sender.zig").CommandSender;
+pub const SubcommandMap = std.StaticStringMap(Command);
+
 pub const Command = struct {
+    const Self = @This();
+
     name: []const u8,
     description: []const u8 = "",
     usageMessage: []const u8 = "",
-    pluginSignature: []const u8 = "zig",
-    callback: *const fn (player: Player, label: []const u8, args: []const u8) bridge.native_plugin.BridgeError!void,
+    callback: *const fn (sender: CommandSender, label: []const u8, args: [][]const u8) bridge.native_plugin.BridgeError!void,
+
+    subcommands: SubcommandMap = SubcommandMap.initComptime(.{}),
+
+    pub fn call(self: *const Self, sender: CommandSender, label: []const u8, args: [][]const u8) !void {
+        if (args.len >= 1 and self.subcommands.kvs.len >= 1) {
+            const subLabel = args[0];
+            const sub = self.subcommands.get(subLabel);
+
+            if (sub) |command| {
+                try command.call(sender, subLabel, args[1..]);
+            } else {
+                try sender.sendMessage("Could not find subcommand.");
+            }
+        } else {
+            try self.callback(sender, label, args);
+        }
+    }
 };
 
 pub const BridgeCommandRegistry = struct {
     const Self = @This();
 
     obj: jni.jobject,
+    allocator: std.mem.Allocator,
     commands: std.StringHashMap(Command),
+
+    pluginSignature: []const u8 = "zig",
 
     pub fn init(obj: jni.jobject, allocator: std.mem.Allocator) BridgeCommandRegistry {
         var map = std.StringHashMap(Command).init(allocator);
@@ -33,7 +56,12 @@ pub const BridgeCommandRegistry = struct {
         return .{
             .obj = obj,
             .commands = map,
+            .allocator = allocator,
         };
+    }
+
+    pub fn setPluginSignature(self: *Self, pluginSignature: []const u8) void {
+        self.pluginSignature = pluginSignature;
     }
 
     pub fn registerCommand(self: *Self, command: Command) !void {
@@ -42,7 +70,7 @@ pub const BridgeCommandRegistry = struct {
             command.name,
             command.description,
             command.usageMessage,
-            command.pluginSignature,
+            self.pluginSignature,
         );
     }
 
@@ -90,17 +118,40 @@ pub const BridgeCommandExport = struct {
         registry.registerCommand(ZigBridgeInfoCommand) catch unreachable;
     }
 
-    pub fn processCommands(_: *jni.cEnv, _: jni.jobject, jsender: jni.jobject, jlabel: jni.jstring, _: jni.jarray) callconv(.C) void {
+    // todo: this function is supposed to only be a thin call for Java to call,
+    // perhaps move a large portion into other functions, and into the BridgeCommandRegistry.
+    pub fn processCommands(_: *jni.cEnv, _: jni.jobject, jsender: jni.jobject, jlabel: jni.jstring, jargs: jni.jarray) callconv(.C) void {
         var vm = plugin.state.vm;
         vm.attachToVM() catch unreachable;
 
-        const player = conversion.object.fromJavaObject(Player, vm.jvmEnv().*, jsender) orelse return;
-        const label = std.mem.span(vm.newCString(jlabel, false));
+        const sender = conversion.object.fromJavaObject(CommandSender, vm.jvmEnv().*, jsender) orelse return;
+        var label = std.mem.span(vm.newCString(jlabel, false));
+
+        // remove the prefix from the command (e.g. /example:zig)
+        if (std.mem.containsAtLeastScalar(u8, label, 1, ':')) {
+            var split = std.mem.splitBackwardsScalar(u8, label, ':');
+
+            const newLabel = split.next();
+
+            if (newLabel) |token| {
+                label = registry.allocator.dupeZ(u8, token) catch unreachable;
+            }
+        }
+
+        var argsList = std.ArrayList([]const u8).init(registry.allocator);
+        const argsLength = vm.env.getArrayLength(jargs);
+
+        for (0..@intCast(argsLength)) |idx| {
+            const element = vm.env.getObjectArrayElement(jargs, @intCast(idx)) orelse continue;
+            const cstr = std.mem.span(vm.newCString(element, false));
+
+            argsList.append(cstr) catch continue;
+        }
 
         const command = registry.commands.get(label);
 
         if (command) |c| {
-            c.callback(player, label, "") catch unreachable;
+            c.call(sender, label, argsList.toOwnedSlice() catch unreachable) catch unreachable;
         }
     }
 };
@@ -108,11 +159,10 @@ pub const BridgeCommandExport = struct {
 pub const ZigBridgeInfoCommand = Command{
     .name = "zig",
     .description = "Command to show general information about Zig Bridge",
-    .pluginSignature = "zig-bridge",
     .callback = zigBridgeCommand,
 };
 
-pub fn zigBridgeCommand(player: Player, _: []const u8, _: []const u8) !void {
+pub fn zigBridgeCommand(sender: CommandSender, _: []const u8, _: [][]const u8) !void {
     const message = try Message.initSlice(
         plugin.state.allocator,
         &.{
@@ -123,5 +173,5 @@ pub fn zigBridgeCommand(player: Player, _: []const u8, _: []const u8) !void {
         },
     );
 
-    try player.sendChatMessage(message);
+    try sender.sendChatMessage(message);
 }
