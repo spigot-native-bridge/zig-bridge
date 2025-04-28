@@ -12,6 +12,8 @@ const signature = types.signature;
 const SignaturePart = signature.SignaturePart;
 const Message = bridge.chat.Message;
 
+const BridgeError = bridge.BridgeError;
+
 pub const CommandSender = @import("sender.zig").CommandSender;
 pub const SubcommandMap = std.StaticStringMap(Command);
 
@@ -21,9 +23,14 @@ pub const Command = struct {
     name: []const u8,
     description: []const u8 = "",
     usageMessage: []const u8 = "",
-    callback: *const fn (sender: CommandSender, label: []const u8, args: [][]const u8) bridge.native_plugin.BridgeError!void,
+
+    init: *const fn () BridgeError!void = emptyInit,
+    callback: *const fn (sender: CommandSender, label: []const u8, args: [][]const u8) BridgeError!void = emptyCommand,
 
     subcommands: SubcommandMap = SubcommandMap.initComptime(.{}),
+
+    pub fn emptyInit() !void {}
+    pub fn emptyCommand(_: CommandSender, _: []const u8, _: [][]const u8) !void {}
 
     pub fn call(self: *const Self, sender: CommandSender, label: []const u8, args: [][]const u8) !void {
         if (args.len >= 1 and self.subcommands.kvs.len >= 1) {
@@ -72,6 +79,8 @@ pub const BridgeCommandRegistry = struct {
             command.usageMessage,
             self.pluginSignature,
         );
+
+        try command.init();
     }
 
     pub fn createCommand(
